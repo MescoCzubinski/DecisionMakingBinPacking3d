@@ -1,0 +1,33 @@
+id,name,width,height,depth,weight,value,depends_on
+1,Dining Table Top,180,10,90,40,300,2
+2,Table Legs Set,80,15,15,12,80,
+3,Wardrobe Body,100,200,60,90,500,4
+4,Wardrobe Doors,200,10,60,25,150,
+5,Sofa 3-Seater,220,90,100,70,600,
+6,Queen Mattress,200,30,160,35,250,7
+7,Bed Frame,210,40,160,60,400,8
+8,Headboard,160,10,120,20,120,
+9,Bookshelf,80,180,30,45,220,
+10,Office Chair,60,110,60,18,130,
+11,Drawer Unit,50,70,50,30,160,
+12,Nightstand,45,55,40,15,90,
+13,Coffee Table,110,45,60,22,180,
+14,TV Stand,150,50,45,28,210,
+15,Dresser,120,90,50,55,340,
+16,Bar Stool,40,75,40,9,70,
+17,Dining Chair,45,95,50,11,95,
+18,Armchair,90,100,95,40,330,
+19,Sideboard,160,80,45,60,380,
+20,Shoe Cabinet,80,100,30,25,140,
+21,Desk,140,75,70,38,290,
+22,Desk Drawers,40,55,50,16,110,21
+23,Filing Cabinet,45,130,60,42,200,
+24,King Mattress,200,30,180,42,320,25
+25,King Bed Frame,210,40,200,70,460,
+26,Crib,130,90,70,30,180,
+27,Changing Table,90,95,55,24,160,
+28,Bean Bag,80,70,80,6,90,
+29,Floor Lamp,30,150,30,8,75,
+30,Mirror Cabinet,70,90,15,18,130,
+31,Console Table,100,80,35,20,150,
+32,Bench,140,45,40,24,170,
