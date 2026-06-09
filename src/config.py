@@ -1,7 +1,7 @@
 # Truck (the single 3D knapsack)
 TRUCK_WIDTH = 240      # x axis
 TRUCK_HEIGHT = 270     # y axis
-TRUCK_DEPTH = 1360     # z axis
+TRUCK_DEPTH = 136     # z axis
 TRUCK_MAX_WEIGHT = 24000
 
 # Genetic Algorithm parameters

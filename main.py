@@ -60,22 +60,20 @@ def report_solution(chromosome, items, truck):
     truck_vol = truck.width * truck.height * truck.depth
     used_vol = sum(id_to_item[i].volume for i in placement)
 
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 80)
     print("FINAL LOADING PLAN")
-    print("=" * 60)
+    print("=" * 80)
     print(f"Boxes loaded : {len(placement)} / {len(items)} in catalogue")
     print(f"Total value  : {value:.0f}")
-    print(f"Total weight : {weight:.0f} / {truck.max_weight} kg "
-          f"({100 * weight / truck.max_weight:.1f}%)")
+    print(f"Total weight : {weight:.0f} / {truck.max_weight} kg ({100 * weight / truck.max_weight:.1f}%)")
     print(f"Volume used  : {100 * used_vol / truck_vol:.1f}% of trailer")
-    print("-" * 60)
+    print("-" * 80)
     for item_id, (pos, dims) in sorted(placement.items()):
         it = id_to_item[item_id]
         x, y, z = (round(v) for v in pos)
         w, h, d = (round(v) for v in dims)
-        print(f"  [{item_id:>3}] {it.name:<22} pos=({x:>4},{y:>4},{z:>5}) "
-              f"size=({w}x{h}x{d}) val={it.value:.0f}")
-    print("=" * 60)
+        print(f"[{item_id}] {it.name:<24} pos=({x},{y},{z}) size=({w}x{h}x{d}) val={it.value}")
+    print("=" * 80)
 
 
 def main():
@@ -97,16 +95,13 @@ def main():
         rng=rng,
     )
 
-    print(f"Truck: {truck.width}x{truck.height}x{truck.depth} cm, "
-          f"max {truck.max_weight} kg")
-    print(f"Starting catalogue: {len(items)} items\n")
+    print(f"Truck: {truck.width}x{truck.height}x{truck.depth} cm, max {truck.max_weight} kg")
 
     for gen in range(1, config.GENERATIONS + 1):
         ga.step()
         best_val, _ = ga.best()
         avg = ga.fitnesses.mean()
-        print(f"Gen {gen:>3}/{config.GENERATIONS} | "
-              f"items={ga.n_genes:>2} | best={best_val:>6.0f} | avg={avg:>6.0f}")
+        print(f"Gen {gen:>3}/{config.GENERATIONS} | items={ga.n_genes:>2} | best={best_val:>6.0f} | avg={avg:>6.0f}")
 
         if (gen % config.ARRIVAL_INTERVAL == 0 and gen < config.GENERATIONS
                 and arrival_queue):
@@ -115,7 +110,7 @@ def main():
             items.extend(new_items)
             ga.grow(len(new_items), make_fitness(items, truck))
             names = ", ".join(it.name for it in new_items)
-            print(f"    >> ARRIVAL: {len(new_items)} new boxes -> {names}")
+            print(f"\n>> ARRIVAL: {len(new_items)}")
 
     _, best_chrom = ga.best()
     report_solution(best_chrom, items, truck)
