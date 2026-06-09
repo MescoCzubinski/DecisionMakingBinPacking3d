@@ -1,0 +1,107 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{graphicx}
+\graphicspath{{../../project1/data/}{../plots/}}
+\lstset{language=Python,breaklines=true,breakatwhitespace=true,basicstyle=\ttfamily\small}
+
+\title{\textbf{Sprawozdanie z Projektu} \\ \textbf{Podstawy Podejmowania Decyzji}}
+\author{\textbf{Mieszko Czubiński}, nr albumu: \textbf{284047}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Wstęp}
+
+\subsection{Opis}
+
+Badany problem jest trójwymiarowym problemem pakowania do kontenerów (ang. \textit{bin packing problem}). Dodatkowo wprowadzono zależności między pakowanymi przedmiotami oraz uwzględniono ciągłe dostarczanie kolejnych produktów do rozpatrzenia. Celem jest minimalizacja kosztów transportu z fabryki, realizowana poprzez zmniejszenie liczby ciężarówek potrzebnych do przewiezienia całego towaru. \\
+
+Rozwiązanie tego problemu może mieć zastosowanie przy załadunku towarów z fabryki do ciężarówek dostawczych. Dane użyte w przykładzie nawiązują do fabryki mebli. Produktem końcowym takiej fabryki są części mebli zapakowane w prostopadłościenne kartony. Ponieważ jeden mebel może być rozłożony na więcej niż jeden karton, wprowadzono między nimi zależności. Fabryka nieustannie produkuje kolejne meble, dlatego istotne jest ciągłe rozwożenie towaru przez ciężarówki.
+
+\subsection{Obiekt podejmowania decyzji}
+
+Rozpatrywany system analizowany jest z~perspektywy systemowej jako obiekt przetwarzający \textit{decyzje} na \textit{ocenę} tych decyzji.
+
+\textit{Decydentem} jest planista odpowiedzialny za załadunek w fabryce mebli, natomiast \textit{przedmiotem decyzji} jest przydział kartonów z~ciągle napływającego strumienia produkcji do kolejnych ciężarówek.
+
+\textbf{Wejściem} (\textit{decyzją}) jest przypisanie każdego kartonu do konkretnego kursu ciężarówki. \textit{Zbiór decyzji dopuszczalnych} tworzą te przydziały, które jednocześnie:
+\begin{itemize}
+    \item mieszczą się geometrycznie w wymiarach naczepy i nie kolidują ze sobą,
+    \item nie przekraczają dopuszczalnej ładowności (limitu wagi),
+    \item spełniają zależności między kartonami -- karton może zostać załadowany tylko wtedy, gdy w tym samym kursie znajdą się wszystkie kartony, od których zależy.
+\end{itemize}
+
+\textbf{Wyjściem} (\textit{oceną decyzji}) jest całkowita liczba ciężarówek użytych do przewiezienia całości towaru.
+
+\textbf{Zależność wyjścia od wejścia} -- sposób rozmieszczenia kartonów oraz reguły zależności określają, ile kartonów zmieści się w jednym kursie, a przez to -- ile kursów potrzeba na obsłużenie całego strumienia produkcji.
+
+\subsection{Wymagania systemowe}
+
+\textbf{Wymaganie na wyjście} -- wymagane jest optymalne podejmowanie decyzji, czyli minimalizacja liczby użytych ciężarówek.
+
+\textbf{Typ systemu} -- jest to \textit{system wspomagania decyzji}, w~którym algorytm generuje propozycję planu załadunku, a~ostateczna decyzja podejmowana jest przez logistyka, który może ją skorygować.
+
+\section{Problem optymalizacyjny}
+
+Minimalizowana jest liczba ciężarówek (kursów) potrzebnych do przewiezienia wszystkich kartonów, przy zachowaniu ograniczeń przestrzennych, wagowych i zależnościowych.
+
+\subsection{Oznaczenia}
+
+\begin{itemize}
+    \item $I=\{1,\dots,n\}$ -- zbiór kartonów; karton $i$: wymiary $(w_i,h_i,d_i)$, waga $m_i$,
+    \item $K=\{1,\dots,K_{\max}\}$ -- zbiór dostępnych ciężarówek; naczepa: wymiary $(W,H,D)$, ładowność $Q$,
+    \item $\mathcal{D}\subseteq I\times I$ -- zbiór zależności: $(i,j)\in\mathcal{D}$ oznacza, że karton $i$ wymaga kartonu $j$ w tym samym kursie.
+\end{itemize}
+
+\subsection{Zmienne decyzyjne}
+\[
+y_k=\begin{cases}1 & \text{ciężarówka } k \text{ jest użyta}\\ 0 & \text{w przeciwnym razie,}\end{cases}
+\qquad
+x_{ik}=\begin{cases}1 & \text{karton } i \text{ jedzie ciężarówką } k\\ 0 & \text{w przeciwnym razie,}\end{cases}
+\]
+
+\subsection{Funkcja celu}
+\[
+\min \sum_{k\in K} y_k
+\]
+
+\subsection{Ograniczenia}
+\begin{align}
+    \sum_{k\in K} x_{ik} = 1, & &\forall i\in I \label{eq:once}\\
+    x_{ik} \le y_k, & &\forall i\in I,\ k\in K \label{eq:used}\\
+    \sum_{i\in I} m_i\,x_{ik} \le Q\,y_k, & &\forall k\in K \label{eq:weight}\\
+    x_{ik} \le x_{jk}, & &\forall (i,j)\in\mathcal{D},\ k\in K \label{eq:dependency}
+\end{align}
+
+oraz warunki mieszczenia się kartonu w wymiarach naczepy:
+\[
+a_i+w_i\le W,
+\qquad
+b_i+h_i\le H,
+\qquad
+c_i+d_i\le D
+\qquad
+\forall i\in I.
+\]
+
+Dodatkowo wymagany jest warunek nienakładania się kartonów przewożonych tą samą ciężarówką: dla każdej pary $i<j$ takiej, że $x_{ik}=x_{jk}=1$, co najmniej jeden z prostopadłościanów leży w~całości po jednej stronie drugiego wzdłuż którejś z osi.
+
+Ograniczenia~\eqref{eq:once} zapewniają, że każdy karton zostanie przewieziony dokładnie raz, \eqref{eq:used}, że kartony trafiają wyłącznie do użytych ciężarówek, \eqref{eq:weight} -- nieprzekroczenie ładowności, a~\eqref{eq:dependency} -- spełnienie zależności między kartonami.
+
+\section{Rozwiązanie}
+
+\section{Wyniki}
+
+\section{Wnioski}
+
+\end{document}
