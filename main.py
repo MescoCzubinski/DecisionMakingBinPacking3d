@@ -1,79 +1,47 @@
-from __future__ import annotations
-
 import numpy as np
 
-from src import config
+from src import config, packer
 from src.ga import GeneticAlgorithm
 from src.items import SAMPLE_ITEMS
 from src.truck import Truck
 
 
-def make_fitness(items, truck):
-    id_to_item = {it.id: it for it in items}
+def decode(order, items, truck):
+    adj = packer.build_adjacency(items)
     gene_ids = [it.id for it in items]
+    by_id = {it.id: it for it in items}
+    return packer.pack(order, gene_ids, by_id, adj, truck)
 
-    def fitness(chromosome):
-        selected = {gene_ids[i] for i, bit in enumerate(chromosome) if bit}
 
-        stack = list(selected)
-        while stack:
-            for dep in id_to_item[stack.pop()].depends_on:
-                if dep in id_to_item and dep not in selected:
-                    selected.add(dep)
-                    stack.append(dep)
+def make_fitness(items, truck):
+    adj = packer.build_adjacency(items)
+    gene_ids = [it.id for it in items]
+    by_id = {it.id: it for it in items}
+    capacity = truck.volume
 
-        subset = sorted((id_to_item[i] for i in selected),
-                        key=lambda it: it.value / it.volume, reverse=True)
-        placement, _weight = truck.pack(subset)
-        packed = set(placement)
-
-        changed = True
-        while changed:
-            changed = False
-            for i in list(packed):
-                if any(dep not in packed for dep in id_to_item[i].depends_on):
-                    packed.discard(i)
-                    changed = True
-
-        return sum(id_to_item[i].value for i in packed)
+    def fitness(order):
+        bins = packer.pack(order, gene_ids, by_id, adj, truck)
+        return sum((b.used_volume / capacity) ** 2 for b in bins) / len(bins)
 
     return fitness
 
 
-def report_solution(chromosome, items, truck):
-    fitness = make_fitness(items, truck)
-    value = fitness(chromosome)
+def report_solution(order, items, truck):
+    bins = decode(order, items, truck)
+    total_vol = truck.volume
 
-    id_to_item = {it.id: it for it in items}
-    gene_ids = [it.id for it in items]
-    selected = {gene_ids[i] for i, bit in enumerate(chromosome) if bit}
-    stack = list(selected)
-    while stack:
-        for dep in id_to_item[stack.pop()].depends_on:
-            if dep in id_to_item and dep not in selected:
-                selected.add(dep)
-                stack.append(dep)
-    subset = sorted((id_to_item[i] for i in selected),
-                    key=lambda it: it.value / it.volume, reverse=True)
-    placement, weight = truck.pack(subset)
-
-    truck_vol = truck.width * truck.height * truck.depth
-    used_vol = sum(id_to_item[i].volume for i in placement)
-
-    print("\n" + "=" * 80)
-    print("FINAL LOADING PLAN")
-    print("=" * 80)
-    print(f"Boxes loaded : {len(placement)} / {len(items)} in catalogue")
-    print(f"Total value  : {value:.0f}")
-    print(f"Total weight : {weight:.0f} / {truck.max_weight} kg ({100 * weight / truck.max_weight:.1f}%)")
-    print(f"Volume used  : {100 * used_vol / truck_vol:.1f}% of trailer")
-    print("-" * 80)
-    for item_id, (pos, dims) in sorted(placement.items()):
-        it = id_to_item[item_id]
-        x, y, z = (round(v) for v in pos)
-        w, h, d = (round(v) for v in dims)
-        print(f"[{item_id}] {it.name:<24} pos=({x},{y},{z}) size=({w}x{h}x{d}) val={it.value}")
-    print("=" * 80)
+    print(f"\n\nBoxes: {len(items)}")
+    print(f"Trucks used: {len(bins)}")
+    print("-" * 60)
+    by_id = {it.id: it for it in items}
+    for k, b in enumerate(bins, 1):
+        fill = 100 * b.used_volume / total_vol
+        load = 100 * b.weight / truck.max_weight
+        print(f"\nTruck {k}: {len(b.contents)} boxes, weight: {load:.1f}%, volume: {fill:.1f}%")
+        for item_id, (pos, dims) in sorted(b.contents.items()):
+            x, y, z = (round(v) for v in pos)
+            w, h, d = (round(v) for v in dims)
+            print(f"  [{item_id}] {by_id[item_id].name:<24} pos=({x},{y},{z}) size=({w}x{h}x{d})")
 
 
 def main():
@@ -88,20 +56,14 @@ def main():
         n_genes=len(items),
         fitness_fn=make_fitness(items, truck),
         pop_size=config.POPULATION_SIZE,
-        cx_prob=config.CROSSOVER_PROB,
-        mut_prob=config.MUTATION_PROB,
-        tournament_size=config.TOURNAMENT_SIZE,
-        elitism=config.ELITISM,
         rng=rng,
     )
 
-    print(f"Truck: {truck.width}x{truck.height}x{truck.depth} cm, max {truck.max_weight} kg")
-
     for gen in range(1, config.GENERATIONS + 1):
         ga.step()
-        best_val, _ = ga.best()
-        avg = ga.fitnesses.mean()
-        print(f"Gen {gen:>3}/{config.GENERATIONS} | items={ga.n_genes:>2} | best={best_val:>6.0f} | avg={avg:>6.0f}")
+        score, best_order = ga.best()
+        trucks = len(decode(best_order, items, truck))
+        print(f"  [{gen}/{config.GENERATIONS}] boxes={ga.n_genes:>2} | trucks={trucks:>2} | fitness={score:.3f}")
 
         if (gen % config.ARRIVAL_INTERVAL == 0 and gen < config.GENERATIONS
                 and arrival_queue):
@@ -109,11 +71,10 @@ def main():
             del arrival_queue[:config.ARRIVAL_COUNT]
             items.extend(new_items)
             ga.grow(len(new_items), make_fitness(items, truck))
-            names = ", ".join(it.name for it in new_items)
-            print(f"\n>> ARRIVAL: {len(new_items)}")
+            print("\nNew items added")
 
-    _, best_chrom = ga.best()
-    report_solution(best_chrom, items, truck)
+    _, best_order = ga.best()
+    report_solution(best_order, items, truck)
 
 
 if __name__ == "__main__":
