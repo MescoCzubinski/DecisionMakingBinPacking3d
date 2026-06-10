@@ -1,5 +1,4 @@
 import csv
-import itertools
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,7 +18,8 @@ class Item:
         return self.width * self.height * self.depth
 
     def orientations(self) -> list[tuple[float, float, float]]:
-       return list(set(itertools.permutations((self.width, self.height, self.depth))))
+        w, h, d = self.width, self.height, self.depth
+        return list({(w, h, d), (w, d, h), (h, w, d), (h, d, w), (d, w, h), (d, h, w)})
 
 
 def load_items():
