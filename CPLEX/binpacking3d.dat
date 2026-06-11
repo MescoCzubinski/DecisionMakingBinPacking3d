@@ -1,0 +1,35 @@
+n    = 18;
+Kmax = 3;
+
+// naczepa (os X = szer., Y = wys., Z = glab.)
+W = 185;
+H = 193;
+D = 312;
+Q = 1500;
+
+// wymiary kartonow: [szerokosc, wysokosc, glebokosc]
+boxDim = [
+  [180,  10,  90],   //  1 Dining Table Top
+  [ 80,  15,  15],   //  2 Table Legs Set
+  [100, 200,  60],   //  3 Wardrobe Body
+  [200,  10,  60],   //  4 Wardrobe Doors
+  [220,  90, 100],   //  5 Sofa 3-Seater
+  [200,  30, 160],   //  6 Queen Mattress
+  [210,  40, 160],   //  7 Bed Frame
+  [160,  10, 120],   //  8 Headboard
+  [ 80, 180,  30],   //  9 Bookshelf
+  [ 60, 110,  60],   // 10 Office Chair
+  [ 50,  70,  50],   // 11 Drawer Unit
+  [ 45,  55,  40],   // 12 Nightstand
+  [110,  45,  60],   // 13 Coffee Table
+  [150,  50,  45],   // 14 TV Stand
+  [120,  90,  50],   // 15 Dresser
+  [ 40,  75,  40],   // 16 Bar Stool
+  [ 45,  95,  50],   // 17 Dining Chair
+  [ 90, 100,  95]    // 18 Armchair
+];
+
+weight = [40, 12, 90, 25, 70, 35, 60, 20, 45, 18, 30, 15, 22, 28, 55, 9, 11, 40];
+
+// zaleznosci <i,j>: karton i wymaga kartonu j w tym samym kursie
+Deps = { <1,2>, <3,4>, <6,7>, <7,8> };
