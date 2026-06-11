@@ -37,6 +37,25 @@ def report_solution(order, items, truck, departed, shipped):
             print(f"  [{item_id}] {by_id[item_id].name:<24} pos=({x},{y},{z}) size=({w}x{h}x{d})")
 
 
+def compare_cplex():
+    rng = np.random.default_rng(config.SEED)
+    truck = Truck(180, 200, 300, 1500)
+    items = list(SAMPLE_ITEMS[:15])
+    departed = set()
+
+    ga = GeneticAlgorithm(
+        n_genes=len(items),
+        fitness_fn=lambda order: fitness(order, items, truck, departed),
+        pop_size=config.POPULATION_SIZE,
+        rng=rng,
+    )
+    for _ in range(config.GENERATIONS):
+        ga.step()
+
+    score, best_order = ga.best()
+    report_solution(best_order, items, truck, departed, [])
+
+
 def main():
     rng = np.random.default_rng(config.SEED)
     truck = Truck(config.TRUCK_WIDTH, config.TRUCK_HEIGHT, config.TRUCK_DEPTH, config.TRUCK_MAX_WEIGHT)
@@ -77,4 +96,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "compare":
+        compare_cplex()
+    else:
+        main()
