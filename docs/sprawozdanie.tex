@@ -91,11 +91,11 @@ Dodatkowo wymagany jest warunek nienakładania się kartonów przewożonych tą 
 
 \section{Rozwiązanie}
 
-Trójwymiarowy problem pakowania z~minimalizacją liczby kontenerów jest NP-trudny razem z~dodatkowymi ograniczeniami (zależności, ciągły napływ kartonów oraz wysyłka aut w~trybie online) wyklucza rozwiązanie dokładne. W celu rozwiązania problemu zastosowano \textbf{metaheurystykę} -- \textit{algorytm genetyczny}.
+Trójwymiarowy problem pakowania z~minimalizacją liczby kontenerów jest NP-trudny razem z~dodatkowymi ograniczeniami (zależności, ciągły napływ kartonów oraz wysyłka aut w~trybie online) wyklucza rozwiązanie dokładne. W celu rozwiązania problemu zastosowano metaheurystykę -- \textit{algorytm genetyczny}.
 
 \subsection{Reprezentacja permutacyjna i dekoder}
 
-Algorytm nie decyduje wprost, który karton trafi do której ciężarówki. Ustala jedynie \textbf{kolejność} $\pi$, w~jakiej kartony są rozpatrywane przy załadunku -- i~to tę kolejność optymalizuje. Dla zadanej kolejności prosta procedura (\textit{dekoder}) ładuje kartony jeden po drugim do ciężarówek, dając gotowy rozkład kartonów po autach:
+Algorytm nie decyduje wprost, który karton trafi do której ciężarówki. Ustala jedynie kolejność $\pi$, w~jakiej kartony są rozpatrywane przy załadunku -- i~to tę kolejność optymalizuje. Dla zadanej kolejności prosta procedura (\textit{dekoder}) ładuje kartony jeden po drugim do ciężarówek, dając gotowy rozkład kartonów po autach:
 \begin{itemize}
     \item kartony rozpatrywane są w~kolejności zadanej przez $\pi$,
     \item kartony powiązane zależnościami tworzą \textit{grupę}, która musi jechać tym samym autem; grupy wyznacza funkcja \texttt{build\_groups}, łącząc ze sobą kartony zależne i~pomijając te już wysłane; grupę ładuje się w~całości albo wcale,
@@ -191,8 +191,169 @@ Ziarno generatora & 42 \\
 \caption{Parametry algorytmu genetycznego i~symulacji dostaw.}
 \end{table}
 
+\subsection{Model dokładny w CPLEX}
+
+Ten sam problem zapisano dodatkowo w~programie IBM ILOG CPLEX (plik \texttt{binpacking3d.mod} -- model, \texttt{binpacking3d.dat} -- dane). CPLEX to tzw. \textit{solver}: sam sprawdza możliwe załadunki i~zwraca najlepszy, z~gwarancją, że lepszego nie ma -- czego algorytm genetyczny nie zapewnia. Dlatego wynik CPLEX-a służy jako \textit{wzorzec} jakości.
+
+Ceną za tę pewność jest konieczność opisania wzorami wszystkiego -- także ułożenia kartonów, które dekoder załatwiał sam. W~modelu dochodzą więc zmienne mówiące, jak karton jest obrócony, gdzie stoi i~jak kartony są rozsunięte, by na siebie nie nachodziły.
+
+Celem jest liczba użytych aut, którą minimalizujemy. Dochodzą do tego proste warunki: każdy karton jedzie dokładnie jednym autem, ma dokładnie jedno ustawienie, a~suma wag w~aucie nie przekracza ładowności:
+
+\begin{lstlisting}[language={}]
+minimize sum(k in K) y[k];
+
+subject to {
+  forall(i in I)
+    sum(k in K) x[i][k] == 1; // karton raz, jednym autem
+  forall(i in I)
+    sum(o in O) ori[i][o] == 1; // dokladnie jedno ustawienie
+  forall(k in K)
+    sum(i in I) weight[i]*x[i][k] <= Q*y[k]; // limit wagi w aucie
+}
+\end{lstlisting}
+
+Karton można postawić na 6 sposobów. Wybrane ustawienie decyduje, ile zajmuje wzdłuż każdej osi naczepy -- w~kodzie liczą to \texttt{lx}, \texttt{ly}, \texttt{lz}. Wymagamy tylko, by karton nie wystawał poza naczepę:
+
+\begin{lstlisting}[language={}]
+dexpr float lx[i in I] = sum(o in O) boxDim[i][perm[o][1]] * ori[i][o];
+dexpr float ly[i in I] = sum(o in O) boxDim[i][perm[o][2]] * ori[i][o];
+dexpr float lz[i in I] = sum(o in O) boxDim[i][perm[o][3]] * ori[i][o];
+
+forall(i in I) {
+  px[i] + lx[i] <= W; // miesci sie wzdluz szerokosci
+  py[i] + ly[i] <= H; // ... wysokosci
+  pz[i] + lz[i] <= D; // ... glebokosci
+}
+\end{lstlisting}
+
+Dwa pudełka się nie nakładają, gdy z~którejś strony jedno stoi w~całości obok drugiego (na lewo, prawo, niżej, wyżej, z~przodu lub z~tyłu -- 6 możliwości). Dla każdej pary dodajemy 6 ,,przełączników'' \texttt{sep}, a~technika \textit{big-M} sprawia, że włączony przełącznik realnie rozsuwa kartony, a~wyłączony czyni warunek nieistotnym. Ostatnia linia pilnuje, by rozsuwać tylko kartony jadące tym samym autem:
+
+\begin{lstlisting}[language={}]
+forall(p in Pairs) {
+    sepXleft:   px[p.i] + lx[p.i] <= px[p.j] + W * (1 - sep[p][1]);
+    sepXright:  px[p.j] + lx[p.j] <= px[p.i] + W * (1 - sep[p][2]);
+    sepYbelow:  py[p.i] + ly[p.i] <= py[p.j] + H * (1 - sep[p][3]);
+    sepYabove:  py[p.j] + ly[p.j] <= py[p.i] + H * (1 - sep[p][4]);
+    sepZback:   pz[p.i] + lz[p.i] <= pz[p.j] + D * (1 - sep[p][5]);
+    sepZfront:  pz[p.j] + lz[p.j] <= pz[p.i] + D * (1 - sep[p][6]);
+
+    // rozdzielenie wymuszane tylko gdy oba w tej samej ciezarowce
+    forall(k in K)
+        noOverlap: sum(t in S) sep[p][t] >= x[p.i][k] + x[p.j][k] - 1;
+}
+\end{lstlisting}
+
+
+Przełączników \texttt{sep} jest 6 na każdą parę kartonów, więc ich liczba rośnie z~kwadratem liczby kartonów -- model szybko puchnie i~CPLEX liczy coraz dłużej. Udowodnione optimum osiąga się tylko dla kilkunastu kartonów; dlatego pełny strumień produkcji obsługuje algorytm genetyczny, a~CPLEX sprawdza jego jakość na małej próbce.
+
 \section{Wyniki}
 
+Wyniki przedstawiono w~dwóch częściach. Najpierw, na małej instancji 15 kartonów (z~zależnościami $1\!\to\!2$, $3\!\to\!4$, $6\!\to\!7$ oraz $7\!\to\!8$), porównano algorytm genetyczny z~modelem dokładnym -- rozmiar dobrano tak, by CPLEX zdążył wyznaczyć gwarantowane optimum stanowiące punkt odniesienia. Następnie uruchomiono pełną symulację ciągłego strumienia produkcji, dla której metoda dokładna jest już poza zasięgiem.
+
+\subsection{Model dokładny (CPLEX)}
+
+CPLEX wyznaczył rozwiązanie \textbf{optymalne} o~wartości funkcji celu równej \textbf{1} -- wszystkie 15 kartonów zmieściło się w~jednej ciężarówce, przy spełnieniu ograniczeń wagi, zależności i~nienakładania. Wynikowe rozmieszczenie (położenie naroża oraz wymiary kartonu po obrocie):
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rlcc}
+\toprule
+\# & Karton & Położenie $(x,y,z)$ & Wymiary $(w\times h\times d)$ \\
+\midrule
+1  & Dining Table Top & $(0,\,0,\,2)$     & $10\times180\times90$  \\
+2  & Table Legs Set   & $(0,\,90,\,297)$  & $15\times80\times15$   \\
+3  & Wardrobe Body    & $(45,\,93,\,112)$ & $60\times100\times200$ \\
+4  & Wardrobe Doors   & $(175,\,0,\,112)$ & $10\times60\times200$  \\
+5  & Sofa 3-Seater    & $(0,\,0,\,92)$    & $100\times90\times220$ \\
+6  & Queen Mattress   & $(105,\,0,\,112)$ & $30\times160\times200$ \\
+7  & Bed Frame        & $(135,\,0,\,102)$ & $40\times160\times210$ \\
+8  & Headboard        & $(175,\,60,\,110)$& $10\times120\times160$ \\
+9  & Bookshelf        & $(15,\,90,\,110)$ & $30\times80\times180$  \\
+10 & Office Chair     & $(75,\,90,\,0)$   & $60\times60\times110$  \\
+11 & Drawer Unit      & $(135,\,0,\,52)$  & $50\times70\times50$   \\
+12 & Nightstand       & $(35,\,45,\,0)$   & $40\times45\times55$   \\
+13 & Coffee Table     & $(30,\,90,\,0)$   & $45\times60\times110$  \\
+14 & TV Stand         & $(15,\,0,\,0)$    & $150\times45\times50$  \\
+15 & Dresser          & $(135,\,73,\,0)$  & $50\times120\times90$  \\
+\bottomrule
+\end{tabular}
+\caption{Rozmieszczenie 15 kartonów w~rozwiązaniu optymalnym (CPLEX).}
+\end{table}
+
+\subsection{Algorytm genetyczny (Python)}
+
+Algorytm genetyczny, choć nie korzysta z~żadnej wiedzy o~optimum, również upakował wszystkie 15 kartonów w~\textbf{jednej} ciężarówce:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{rlcc}
+\toprule
+\# & Karton & Położenie $(x,y,z)$ & Wymiary $(w\times h\times d)$ \\
+\midrule
+1  & Dining Table Top & $(170,\,0,\,0)$     & $10\times90\times180$  \\
+2  & Table Legs Set   & $(160,\,120,\,0)$   & $15\times80\times15$   \\
+3  & Wardrobe Body    & $(0,\,0,\,0)$       & $60\times100\times200$ \\
+4  & Wardrobe Doors   & $(60,\,0,\,0)$      & $10\times60\times200$  \\
+5  & Sofa 3-Seater    & $(70,\,0,\,0)$      & $90\times100\times220$ \\
+6  & Queen Mattress   & $(0,\,140,\,0)$     & $160\times30\times200$ \\
+7  & Bed Frame        & $(0,\,100,\,0)$     & $160\times40\times210$ \\
+8  & Headboard        & $(160,\,0,\,0)$     & $10\times120\times160$ \\
+9  & Bookshelf        & $(0,\,170,\,0)$     & $80\times30\times180$  \\
+10 & Office Chair     & $(0,\,0,\,240)$     & $60\times110\times60$  \\
+11 & Drawer Unit      & $(110,\,140,\,250)$ & $70\times50\times50$   \\
+12 & Nightstand       & $(0,\,0,\,200)$     & $45\times55\times40$   \\
+13 & Coffee Table     & $(0,\,140,\,250)$   & $110\times60\times45$  \\
+14 & TV Stand         & $(0,\,140,\,200)$   & $150\times45\times50$  \\
+15 & Dresser          & $(70,\,0,\,220)$    & $90\times120\times50$  \\
+\bottomrule
+\end{tabular}
+\caption{Rozmieszczenie 15 kartonów wyznaczone przez algorytm genetyczny.}
+\end{table}
+
+\subsection{Porównanie}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Metoda & Ciężarówki & Wypełnienie obj. & Wykorzyst. ładowności & Optymalność \\
+\midrule
+Model dokładny (CPLEX) & 1 & 76,4\% & 37,7\% & optimum (z~dowodem) \\
+Algorytm genetyczny    & 1 & 76,4\% & 37,7\% & zgodne z~optimum \\
+\bottomrule
+\end{tabular}
+\caption{Porównanie obu metod na tej samej instancji 15 kartonów (naczepa $180\times200\times300$, ładowność $1500$).}
+\end{table}
+
+\subsection{Pełna symulacja strumienia produkcji}
+
+Właściwy scenariusz -- ciągły napływ kartonów i~stopniowa wysyłka aut -- uruchomiono na pełnych danych. Symulacja startuje z~10 kartonami i~co 10 pokoleń otrzymuje 5 nowych (łącznie 105 kartonów w~200 pokoleniach), a~co 40 pokoleń wysyłana jest najpełniejsza ciężarówka. W~ciągu 200 pokoleń wyjechało 5 aut, a~szóste pozostało w~załadunku -- razem \textbf{6 ciężarówek} na 105 kartonów.
+
+Każdy napływ chwilowo pogarsza ocenę (nowe kartony otwierają dodatkowe auto), po czym algorytm ją odrabia, dopakowując je do aut już otwartych.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccccc}
+\toprule
+Ciężarówka & Kartony & Wypełnienie obj. & Wykorzyst. ładowności & Status \\
+\midrule
+1 & 18 & 88,2\% & 44,3\% & wysłana (pok.~40)  \\
+2 & 19 & 80,0\% & 55,4\% & wysłana (pok.~80)  \\
+3 & 19 & 81,1\% & 68,5\% & wysłana (pok.~120) \\
+4 & 17 & 78,0\% & 67,1\% & wysłana (pok.~160) \\
+5 & 18 & 79,8\% & 65,3\% & wysłana (pok.~200) \\
+6 & 14 & 67,6\% & 67,9\% & w~załadunku        \\
+\bottomrule
+\end{tabular}
+\caption{Wynik pełnej symulacji: 105 kartonów rozwiezionych 6~ciężarówkami (5 wysłanych w~trakcie pracy, 1 wciąż doładowywana).}
+\end{table}
+
 \section{Wnioski}
+
+W~ramach projektu zbudowano automatyczny system załadunku, rozwiązujący trójwymiarowy problem pakowania z~dodatkowymi ograniczeniami -- zależnościami między kartonami oraz ciągłym napływem produkcji i~wysyłką aut. Sercem rozwiązania jest algorytm genetyczny operujący na kolejności kartonów, z~dekoderem opartym na heurystyce punktów ekstremalnych; dzięki temu każde rozważane rozwiązanie jest z~założenia poprawne, a~algorytm przeszukuje wyłącznie sensowne plany załadunku.
+
+Jakość metaheurystyki sprawdzono, porównując ją z~modelem dokładnym (CPLEX) na tej samej, małej instancji 15 kartonów. Obie metody użyły dokładnie jednej ciężarówki, zatem \textbf{algorytm genetyczny osiągnął wynik optymalny} -- tyle samo aut, ile gwarantuje solver. Rozmieszczenia kartonów się różnią (CPLEX swobodnie dobiera współrzędne, dekoder wkłada kartony w~kolejne wolne naroża), lecz dla funkcji celu, czyli liczby aut, nie ma to znaczenia.
+
+Trzeba jednak zaznaczyć, że była to instancja łatwa -- cały zestaw mieścił się w~jednym aucie, więc nie różnicuje obu metod. Przy większej liczbie kartonów lub ciaśniejszej naczepie algorytm genetyczny mógłby użyć o~jedno auto więcej niż optimum, ale takich rozmiarów model dokładny nie rozwiązuje już w~rozsądnym czasie. To właśnie ograniczenie było głównym powodem sięgnięcia po metaheurystykę: w~odróżnieniu od solvera radzi sobie ona z~pełnym, wciąż rosnącym strumieniem produkcji, dla którego dokładne optimum pozostaje poza zasięgiem. W~przeprowadzonej symulacji algorytm rozwiózł 105 kartonów sześcioma ciężarówkami, utrzymując wypełnienie wysyłanych aut na poziomie 78--88\% objętości.
 
 \end{document}
