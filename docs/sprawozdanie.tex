@@ -24,15 +24,17 @@
 
 \subsection{Opis}
 
-Badany problem jest trójwymiarowym problemem pakowania do kontenerów (ang. \textit{bin packing problem}). Dodatkowo wprowadzono zależności między pakowanymi przedmiotami oraz uwzględniono ciągłe dostarczanie kolejnych produktów do rozpatrzenia. Celem jest minimalizacja kosztów transportu z fabryki, realizowana poprzez zmniejszenie liczby ciężarówek potrzebnych do przewiezienia całego towaru. \\
+Badany problem jest trójwymiarowym problemem pakowania do kontenerów (ang. \textit{bin packing problem}). Dodatkowo wprowadzono zależności między pakowanymi przedmiotami oraz uwzględniono ciągłe dostarczanie kolejnych produktów do rozpatrzenia. Celem jest minimalizacja liczby kontenerów potrzebnych do przewiezienia przedmiotów. \\
 
-Rozwiązanie tego problemu może mieć zastosowanie przy załadunku towarów z fabryki do ciężarówek dostawczych. Dane użyte w przykładzie nawiązują do fabryki mebli. Produktem końcowym takiej fabryki są części mebli zapakowane w prostopadłościenne kartony. Ponieważ jeden mebel może być rozłożony na więcej niż jeden karton, wprowadzono między nimi zależności. Fabryka nieustannie produkuje kolejne meble, dlatego istotne jest ciągłe rozwożenie towaru przez ciężarówki.
+Rozwiązanie tego problemu może mieć zastosowanie przy załadunku towarów z fabryki do ciężarówek dostawczych. Dane użyte w przykładzie nawiązują do fabryki mebli. Produktem końcowym takiej fabryki są części mebli zapakowane w prostopadłościenne kartony. Ponieważ jeden mebel może być rozłożony na więcej niż jeden karton, wprowadzono między nimi zależności.
+
+Fabryka nieustannie produkuje kolejne meble, dlatego istotne jest ciągłe odbieranie towaru przez ciężarówki. Są one stopniowo doładowywane napływającymi kartonami, gdy któraś jest dostatecznie zapełniona, zostaje wysłana w~trasę i~nie podlega już żadnym zmianom.
 
 \subsection{Obiekt podejmowania decyzji}
 
 Rozpatrywany system analizowany jest z~perspektywy systemowej jako obiekt przetwarzający \textit{decyzje} na \textit{ocenę} tych decyzji.
 
-\textit{Decydentem} jest planista odpowiedzialny za załadunek w fabryce mebli, natomiast \textit{przedmiotem decyzji} jest przydział kartonów z~ciągle napływającego strumienia produkcji do kolejnych ciężarówek.
+\textit{Decydentem} jest algorytm optymalizacyjny odpowiedzialny za załadunek w fabryce mebli, natomiast \textit{przedmiotem decyzji} jest przydział kartonów z~ciągle napływającego strumienia produkcji do kolejnych ciężarówek.
 
 \textbf{Wejściem} (\textit{decyzją}) jest przypisanie każdego kartonu do konkretnego kursu ciężarówki. \textit{Zbiór decyzji dopuszczalnych} tworzą te przydziały, które jednocześnie:
 \begin{itemize}
@@ -43,13 +45,13 @@ Rozpatrywany system analizowany jest z~perspektywy systemowej jako obiekt przetw
 
 \textbf{Wyjściem} (\textit{oceną decyzji}) jest całkowita liczba ciężarówek użytych do przewiezienia całości towaru.
 
-\textbf{Zależność wyjścia od wejścia} -- sposób rozmieszczenia kartonów oraz reguły zależności określają, ile kartonów zmieści się w jednym kursie, a przez to -- ile kursów potrzeba na obsłużenie całego strumienia produkcji.
+\textbf{Zależność wyjścia od wejścia} -- sposób rozmieszczenia kartonów oraz reguły zależności określają, ile kartonów zmieści się w jednym kursie, a przez to -- ile kursów potrzeba na obsłużenie całego strumienia produkcji. Kartony przydzielane są na bieżąco. Wysłanej ciężarówki nie można już zmienić.
 
 \subsection{Wymagania systemowe}
 
-\textbf{Wymaganie na wyjście} -- wymagane jest optymalne podejmowanie decyzji, czyli minimalizacja liczby użytych ciężarówek.
+\textbf{Wymaganie na wyjście} -- kryterium decyzyjnym jest minimalizacja liczby użytych ciężarówek. Ze względu na NP-trudność problemu nie dąży się do gwarantowanego optimum, lecz do rozwiązania możliwie bliskiego optymalnemu.
 
-\textbf{Typ systemu} -- jest to \textit{system wspomagania decyzji}, w~którym algorytm generuje propozycję planu załadunku, a~ostateczna decyzja podejmowana jest przez logistyka, który może ją skorygować.
+\textbf{Typ systemu} -- jest to \textit{system automatycznego podejmowania decyzji}, w~którym algorytm samodzielnie wyznacza plan załadunku przydzielanych kartonów, bez udziału człowieka.
 
 \section{Problem optymalizacyjny}
 
@@ -83,22 +85,111 @@ x_{ik}=\begin{cases}1 & \text{karton } i \text{ jedzie ciężarówką } k\\ 0 & 
     x_{ik} \le x_{jk}, & &\forall (i,j)\in\mathcal{D},\ k\in K \label{eq:dependency}
 \end{align}
 
-oraz warunki mieszczenia się kartonu w wymiarach naczepy:
-\[
-a_i+w_i\le W,
-\qquad
-b_i+h_i\le H,
-\qquad
-c_i+d_i\le D
-\qquad
-\forall i\in I.
-\]
 
+Ograniczenia~\eqref{eq:once} zapewniają, że każdy karton zostanie przewieziony dokładnie raz, \eqref{eq:used} -- kartony trafiają wyłącznie do użytych ciężarówek, \eqref{eq:weight} -- nieprzekroczenie ładowności, a~\eqref{eq:dependency} -- spełnienie zależności między kartonami. \\
 Dodatkowo wymagany jest warunek nienakładania się kartonów przewożonych tą samą ciężarówką: dla każdej pary $i<j$ takiej, że $x_{ik}=x_{jk}=1$, co najmniej jeden z prostopadłościanów leży w~całości po jednej stronie drugiego wzdłuż którejś z osi.
 
-Ograniczenia~\eqref{eq:once} zapewniają, że każdy karton zostanie przewieziony dokładnie raz, \eqref{eq:used}, że kartony trafiają wyłącznie do użytych ciężarówek, \eqref{eq:weight} -- nieprzekroczenie ładowności, a~\eqref{eq:dependency} -- spełnienie zależności między kartonami.
-
 \section{Rozwiązanie}
+
+Trójwymiarowy problem pakowania z~minimalizacją liczby kontenerów jest NP-trudny razem z~dodatkowymi ograniczeniami (zależności, ciągły napływ kartonów oraz wysyłka aut w~trybie online) wyklucza rozwiązanie dokładne. W celu rozwiązania problemu zastosowano \textbf{metaheurystykę} -- \textit{algorytm genetyczny}.
+
+\subsection{Reprezentacja permutacyjna i dekoder}
+
+Algorytm nie decyduje wprost, który karton trafi do której ciężarówki. Ustala jedynie \textbf{kolejność} $\pi$, w~jakiej kartony są rozpatrywane przy załadunku -- i~to tę kolejność optymalizuje. Dla zadanej kolejności prosta procedura (\textit{dekoder}) ładuje kartony jeden po drugim do ciężarówek, dając gotowy rozkład kartonów po autach:
+\begin{itemize}
+    \item kartony rozpatrywane są w~kolejności zadanej przez $\pi$,
+    \item kartony powiązane zależnościami tworzą \textit{grupę}, która musi jechać tym samym autem; grupy wyznacza funkcja \texttt{build\_groups}, łącząc ze sobą kartony zależne i~pomijając te już wysłane; grupę ładuje się w~całości albo wcale,
+    \item każda grupa trafia do pierwszej ciężarówki, w~której się mieści; jeśli nie mieści się w~żadnej z~otwartych -- otwierana jest nowa,
+\end{itemize}
+
+Ułożenie kartonów wewnątrz auta wyznacza heurystyka \textit{punktów ekstremalnych}. Oparta na zbiorze wolnych narożników, w~które można wstawić karton. Karton trafia do najniższego i~najgłębszego narożniku, w~którym się mieści i~nie nachodzi na inne kartony, po wstawieniu wzdłuż jego krawędzi powstają nowe naroża.
+
+Zaletą oddzielenia kolejności od dekodera jest to, że algorytm nigdy nie tworzy załadunku łamiącego ograniczenia -- przeszukuje tylko różne kolejności, a~każda z~nich daje poprawny plan.
+
+\begin{lstlisting}
+def pack(order, gene_ids, by_id, groups, truck, departed=()):
+    assigned = set(departed)
+    bins = []
+    for g in order:
+        iid = gene_ids[int(g)]
+        if iid in assigned:
+            continue
+        group = [by_id[c] for c in groups[iid]]
+        if not any(b.add_group(group) for b in bins):
+            new_bin = Bin(truck)
+            new_bin.add_group(group)
+            bins.append(new_bin)
+        assigned.update(groups[iid])
+    return bins
+\end{lstlisting}
+
+\subsection{Funkcja przystosowania}
+
+Gdyby oceniać rozwiązanie wprost liczbą aut, wiele różnych kolejności miałoby identyczną ocenę i~algorytm nie wiedziałby, które z~nich są bliżej usunięcia kolejnego auta. Dlatego algorytm maksymalizuje ocenę, która nagradza auta wypełnione jak najpełniej:
+\[
+F(\pi)=\frac{1}{m}\sum_{k=1}^{m}\left(\frac{V_k}{V}\right)^{2},
+\]
+gdzie $m$ -- liczba użytych aut, $V_k$ -- objętość zajęta w~aucie $k$, a~$V=W\cdot H\cdot D$ -- objętość ładowni. Podniesienie do kwadratu nagradza rozkłady, w~których jedne auta są pełne, a~jedno prawie puste -- takie najłatwiej domknąć, wyrzucając ostatnie, słabo zapełnione auto.
+
+\begin{lstlisting}
+def fitness(order, items, truck, departed):
+    groups = packer.build_groups(items, departed)
+    gene_ids = [it.id for it in items]
+    by_id = {it.id: it for it in items}
+    bins = packer.pack(order, gene_ids, by_id, groups, truck, departed)
+    capacity = truck.volume
+    return sum((b.used_volume / capacity) ** 2 for b in bins) / len(bins)
+\end{lstlisting}
+
+\subsection{Operatory genetyczne}
+
+\begin{itemize}
+    \item \textbf{Selekcja turniejowa} -- losuje się $t$ kolejności, a~dalej przechodzi najlepsza z~nich;
+    \item \textbf{Mutacja przez zamianę} -- w~kolejności z~prawdopodobieństwem $p_m$ zamienia się miejscami dwa kartony;
+    \item \textbf{Elityzm} -- kilka najlepszych kolejności przechodzi do następnego pokolenia bez zmian.
+\end{itemize}
+
+\subsection{Obsługa ciągłych dostaw}
+
+Co ustaloną liczbę pokoleń \texttt{ARRIVAL\_INTERVAL} do każdej kolejności dopisywane są nowo przybyłe kartony, a~ocena liczona jest już dla powiększonego zbioru. Obliczona wcześniej kolejność zostaje zachowana.
+
+\subsection{Odjazdy ciężarówek}
+
+Aby oddać cykl załadunku, ciężarówki wysyłane są w~trakcie pracy algorytmu. Co \texttt{DEPART\_INTERVAL} pokoleń najpełniejsze z~otwartych aut zostaje wysłane: jego kartony trafiają do zbioru \texttt{departed} i~nie biorą udziału w~dalszych obliczeniach (dekoder je pomija).
+Żeby żaden karton nie został zapakowany dwa razy, wysłane kartony (\texttt{departed}) pomijane są i~przy ładowaniu (\texttt{pack}), i~przy tworzeniu grup zależności (\texttt{build\_groups}).
+
+\begin{lstlisting}
+if gen % config.DEPART_INTERVAL == 0 and bins:
+    fullest = max(bins, key=lambda b: b.used_volume)
+    shipped.append(fullest)
+    departed_ids.update(fullest.contents)
+    print(f"Truck departed: {len(fullest.contents)} boxes, {100 * fullest.used_volume / truck.volume:.1f}% full")
+\end{lstlisting}
+
+ Końcowy wynik to liczba aut wysłanych w~trakcie symulacji powiększona o~auta, które na końcu wciąż są doładowywane.
+
+\subsection{Parametry i instancja testowa}
+
+Jako ciężarówkę przyjęto realny lekki samochód dostawczy klasy o parametrach ładowni: $300\times180\times200$ cm (dł.$\times$szer.$\times$wys.) i ładowności $1500$ kg.
+Symulacja startuje z~$10$ kartonami i~co $10$ pokoleń dostarcza po $5$ nowych, co przy $200$ pokoleniach daje $105$ kartonów do rozwiezienia. Równolegle co $40$ pokoleń wysyłana jest najpełniejsza ciężarówka.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\toprule
+Parametr & Wartość \\
+\midrule
+Rozmiar populacji & 50 \\
+Liczba pokoleń & 200 \\
+Przedmioty początkowe & 10 \\
+Interwał dostaw [pokolenia] & 10 \\
+Liczność dostawy & 5 \\
+Interwał odjazdów [pokolenia] & 40 \\
+Ziarno generatora & 42 \\
+\bottomrule
+\end{tabular}
+\caption{Parametry algorytmu genetycznego i~symulacji dostaw.}
+\end{table}
 
 \section{Wyniki}
 
